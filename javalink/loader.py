@@ -1,4 +1,6 @@
 import itertools
+import javatools
+import os
 import re
 
 from javatools import jarinfo
@@ -63,22 +65,62 @@ def load_jar(path, packages={}):
     # use generators to parse jar entries lazily
     classes = (jar.get_classinfo(c) for c in jar.get_classes())
     for c in itertools.ifilter(is_linkable_class, classes):
-        link_class = LinkableClass(c)
-        if link_class.package not in packages:
-            packages[link_class.package] = {}
-        packages[link_class.package][link_class.name] = link_class
+        parse_class(c, packages)
 
     return packages
+
+
+def load_class(path, packages={}):
+    class_info = javatools.unpack_classfile(path)
+    parse_class(class_info, packages)
+    return packages
+
+
+def parse_class(class_info, packages={}):
+    link_class = LinkableClass(class_info)
+    if link_class.package not in packages:
+        packages[link_class.package] = {}
+
+    packages[link_class.package][link_class.name] = link_class
+    return packages
+
+
+def expand_classpath_entry(path):
+    if os.path.isfile(path):
+        return [path]
+    elif os.path.isdir(path):
+        return _expand_classpath_dir(path, '.class')
+    elif os.path.basename(path) == '*':
+        return _expand_classpath_dir(os.path.dirname(path), '.jar')
+    else:
+        raise ValueError('invalid classpath entry: {}'.format(path))
+
+
+def _expand_classpath_dir(dirpath, ext):
+    paths = []
+    for entry in os.listdir(dirpath):
+        path = os.path.join(dirpath, entry)
+        if entry.endswith(ext) and os.path.isfile(path):
+            paths.append(path)
+
+    return paths
 
 
 class ClassLoader:
     def __init__(self, paths):
         self.paths = list(paths)
 
+    def get_entries(self):
+        entries = map(expand_classpath_entry, self.paths)
+        return itertools.chain.from_iterable(entries)
+
     def load(self):
         self.packages = {}
-        for path in self.paths:
-            load_jar(path, self.packages)
+        for path in self.get_entries():
+            if path.endswith('.jar'):
+                load_jar(path, self.packages)
+            elif path.endswith('.class'):
+                load_class(path, self.packages)
 
     def has_target(self, package, clazz=None, member=None):
         if package not in self.packages:
