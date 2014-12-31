@@ -2,8 +2,17 @@ import itertools
 import javatools
 import os
 import re
+import zipfile
 
-from javatools import jarinfo
+from javatools import ziputils
+
+def parse_name(name, separator='.'):
+    parts = name.split(separator)
+    if len(parts) < 2:
+        raise ValueError("'{}' is unsplittable".format(name))
+    else:
+        return (Package(parts[:-1]), parts[-1])
+
 
 def is_linkable_method(method_info):
     return not (method_info.is_bridge() or
@@ -17,14 +26,14 @@ def is_linkable_class(class_info):
 
 class LinkableClass:
     def __init__(self, class_info):
-        fqn = class_info.get_this().replace('/', '.')
-        self.package, self.name = fqn.rsplit('.', 1)
+        self.package, self.name = parse_name(class_info.get_this(), '/')
 
-        self.fields = [f.get_name() for f in class_info.fields]
+        self.fields = tuple(f.get_name() for f in class_info.fields)
 
-        self.methods = []
+        methods = []
         for m in filter(is_linkable_method, class_info.methods):
-            self.methods.append(LinkableMethod(self.name, m))
+            methods.append(LinkableMethod(self.name, m))
+        self.methods = tuple(methods)
 
     def has_member(self, member):
         if member in self.fields:
@@ -43,6 +52,9 @@ class LinkableClass:
 
         return False
 
+    def __str__(self):
+        return '{}.{}'.format(self.package.name, self.name)
+
 
 class LinkableMethod:
     def __init__(self, class_name, method):
@@ -52,85 +64,129 @@ class LinkableMethod:
         else:
             self.name = name
 
-        self.args = list(method.pretty_arg_types())
+        self.args = tuple(method.pretty_arg_types())
 
     def has_args(self, args):
         # TODO enable fuzy matching for arguments
         return args == self.args
 
 
-def load_jar(path, packages={}):
-    jar = jarinfo.JarInfo(path)
+class Package:
+    def __init__(self, parts):
+        self.parts = tuple(parts)
+        self.name = '.'.join(self.parts)
+        self.path = '/'.join(self.parts)
 
-    # use generators to parse jar entries lazily
-    classes = (jar.get_classinfo(c) for c in jar.get_classes())
-    for c in itertools.ifilter(is_linkable_class, classes):
-        parse_class(c, packages)
+    def get_member_path(self, member):
+        return self.path + '/' + member + '.class'
 
-    return packages
+    def __eq__(self, other):
+        return self.parts == other.parts
 
+    def __ne__(self, other):
+        return self.parts != other.parts
 
-def load_class(path, packages={}):
-    class_info = javatools.unpack_classfile(path)
-    parse_class(class_info, packages)
-    return packages
+    def __hash__(self):
+        return hash(self.parts)
 
-
-def parse_class(class_info, packages={}):
-    link_class = LinkableClass(class_info)
-    if link_class.package not in packages:
-        packages[link_class.package] = {}
-
-    packages[link_class.package][link_class.name] = link_class
-    return packages
+    def __str__(self):
+        return self.name
 
 
-def expand_classpath_entry(path):
-    if os.path.isfile(path):
-        return [path]
-    elif os.path.isdir(path):
-        return _expand_classpath_dir(path, '.class')
-    elif os.path.basename(path) == '*':
-        return _expand_classpath_dir(os.path.dirname(path), '.jar')
+class PackageContents:
+    def __init__(self):
+        self.contents = {}
+
+    def add_class(self, linkable_class):
+        self.contents[linkable_class.name] = linkable_class
+
+    def get_class(self, name):
+        return self.contents[name]
+
+    def __getitem__(self, key):
+        return self.get_class(key)
+
+
+def extract_class(jar, name):
+    with jar.open(name) as entry:
+        return LinkableClass(javatools.unpack_class(entry))
+
+
+def is_jar(path):
+    return path.endswith('.jar') and zipfile.is_zipfile(path)
+
+
+def expand_classpath_entry(entry):
+    if os.path.isdir(entry) or is_jar(entry):
+        return [entry]
+    elif os.path.basename(entry) == '*':
+        entry = os.path.dirname(entry)
+        contents = [os.path.join(entry, c) for c in os.listdir(entry)]
+        return [c for c in contents if is_jar(c)]
     else:
-        raise ValueError('invalid classpath entry: {}'.format(path))
+        raise ValueError('Invalid classpath entry: {}'.format(entry))
 
 
-def _expand_classpath_dir(dirpath, ext):
-    paths = []
-    for entry in os.listdir(dirpath):
-        path = os.path.join(dirpath, entry)
-        if entry.endswith(ext) and os.path.isfile(path):
-            paths.append(path)
+def open_classpath_entry(entry):
+    class ExplodedZipFile(ziputils.ExplodedZipFile):
+        def open(self, name, mode='rb'):
+            if not os.path.isfile(os.path.join(self.fn, name)):
+                raise KeyError("There is no item named '{}' in the archive".format(name))
+            return super(ExplodedZipFile, self).open(name, mode)
 
-    return paths
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            self.close()
+            return exc_type is None
+
+    if os.path.isdir(entry):
+        return ExplodedZipFile(entry)
+    elif is_jar(entry):
+        return zipfile.ZipFile(entry, 'r')
+    else:
+        raise ValueError('Invalid classpath entry: {}'.format(entry))
 
 
 class ClassLoader:
     def __init__(self, paths):
-        self.paths = list(paths)
+        entries = map(expand_classpath_entry, paths)
+        self.entries = list(itertools.chain.from_iterable(entries))
 
-    def get_entries(self):
-        entries = map(expand_classpath_entry, self.paths)
-        return itertools.chain.from_iterable(entries)
-
-    def load(self):
+        # Package --> PackageContents
         self.packages = {}
-        for path in self.get_entries():
-            if path.endswith('.jar'):
-                load_jar(path, self.packages)
-            elif path.endswith('.class'):
-                load_class(path, self.packages)
 
-    def has_target(self, package, clazz=None, member=None):
-        if package not in self.packages:
-            return False
+    def load(self, name):
+        package, class_name = parse_name(name)
 
-        if clazz is not None:
-            if clazz not in self.packages[package]:
-                return False
-            if member is not None:
-                info = self.packages[package][clazz]
-                return info.has_member(member)
+        try:
+            return self.packages[package][class_name]
+        except KeyError:
+            clazz = self.find(name)
+            if clazz:
+                if clazz.package != package or clazz.name != class_name:
+                    msg = "Wanted class '{}', but '{}' was loaded"
+                    raise ValueError(msg.format(name, clazz))
 
-        return True
+                if not clazz.package in self.packages:
+                    self.packages[clazz.package] = PackageContents()
+                self.packages[clazz.package].add_class(clazz)
+
+            return clazz
+
+    def find(self, name):
+        package, class_name = parse_name(name)
+        path = package.get_member_path(class_name)
+
+        for entry in self.entries:
+            with open_classpath_entry(entry) as jar:
+                try:
+                    return extract_class(jar, path)
+                except KeyError:
+                    pass
+
+        return None
+
+    def get_packages(self):
+        return [p.name for p in self.packages.keys()]
