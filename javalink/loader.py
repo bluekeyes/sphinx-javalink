@@ -75,10 +75,10 @@ class Package:
     def __init__(self, parts):
         self.parts = tuple(parts)
         self.name = '.'.join(self.parts)
-        self.path = '/'.join(self.parts)
+        self.path = '/'.join(self.parts) + '/'
 
     def get_member_path(self, member):
-        return self.path + '/' + member + '.class'
+        return self.path + member + '.class'
 
     def __eq__(self, other):
         return self.parts == other.parts
@@ -185,6 +185,24 @@ class ClassLoader:
                     return extract_class(jar, path)
                 except KeyError:
                     pass
+
+        return None
+
+    def find_package(self, name):
+        package = Package(name.split('.'))
+
+        if package in self.packages:
+            return package
+
+        for entry in self.entries:
+            with open_classpath_entry(entry) as jar:
+                try:
+                    jar.getinfo(package.path)
+                except KeyError:
+                    pass
+                else:
+                    self.packages[package] = PackageContents()
+                    return package
 
         return None
 
