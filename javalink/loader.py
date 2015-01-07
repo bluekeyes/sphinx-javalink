@@ -27,6 +27,7 @@ def is_linkable_class(class_info):
 class LinkableClass:
     def __init__(self, class_info):
         self.package, self.name = parse_name(class_info.get_this(), '/')
+        self.full_name = '{}.{}'.format(self.package, self.name)
 
         self.fields = tuple(f.get_name() for f in class_info.fields)
 
