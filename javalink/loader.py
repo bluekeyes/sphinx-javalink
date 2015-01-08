@@ -8,10 +8,7 @@ from javatools import ziputils
 
 def parse_name(name, separator='.'):
     parts = name.split(separator)
-    if len(parts) < 2:
-        raise ValueError("'{}' is unsplittable".format(name))
-    else:
-        return (Package(parts[:-1]), parts[-1])
+    return (Package(parts[:-1]), parts[-1])
 
 
 def is_linkable_method(method_info):
@@ -202,6 +199,7 @@ class ClassLoader:
                 except KeyError:
                     pass
                 else:
+                    # TODO avoid changing state in find method
                     self.packages[package] = PackageContents()
                     return package
 
