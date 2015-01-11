@@ -103,7 +103,9 @@ class JavaRefRole(JavalinkEnvAccessor):
             where = clazz.full_name
             if what:
                 # TODO handle member ambiguity
-                if clazz.has_member(what):
+                member = clazz.get_member(what)
+                if member:
+                    what = member.get_url_fragment()
                     return self.to_url(where, what), warnings
                 else:
                     warnings.append('unknown member: {}'.format(reftext))
@@ -129,7 +131,6 @@ class JavaRefRole(JavalinkEnvAccessor):
         path = where.replace('.', '/').replace('$', '.')
         path += '.html'
         if what:
-            # TODO this probably needs work
             path += '#{}'.format(what)
 
         return root + path
@@ -177,7 +178,9 @@ class JavaRefRole(JavalinkEnvAccessor):
                  options={}, content=[]):
 
         text = docutils.utils.unescape(text)
-        _, title, reftext = split_explicit_title(text)
+        has_title, title, reftext = split_explicit_title(text)
+        if not has_title:
+            title = title.replace('#', '.')
 
         url, warnings = self.find_url(reftext)
         if url:
