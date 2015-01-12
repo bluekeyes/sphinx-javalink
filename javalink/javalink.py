@@ -190,9 +190,10 @@ class JavaRefRole(JavalinkEnvAccessor):
                 docdir = os.path.dirname(inliner.document.current_source)
                 url = os.path.relpath(self.env.srcdir, docdir) + '/' + url
 
-            ref = docutils.nodes.reference(title, title, internal=False, refuri=url)
+            ref = docutils.nodes.reference('', '', internal=False, refuri=url)
+            ref.append(docutils.nodes.literal(rawsource=title, text=title))
         else:
-            ref = docutils.nodes.inline(rawsource=title, text=title)
+            ref = docutils.nodes.literal(rawsource=title, text=title)
 
         return [ref], [inliner.reporter.warning(w, line=lineno) for w in warnings]
 
