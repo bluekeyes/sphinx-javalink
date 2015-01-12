@@ -1,11 +1,12 @@
 import os
-import urlparse
+import urllib
 
 import docutils.nodes
 import docutils.utils
 
 from docutils.parsers import rst
 from sphinx.util.nodes import split_explicit_title
+from urlparse import urlparse, urljoin
 
 from loader import ClassLoader
 
@@ -122,7 +123,6 @@ class JavaRefRole(JavalinkEnvAccessor):
         warnings.append('reference not found: {}'.format(reftext))
         return None, warnings
 
-    # TODO: does this need to encode the URL?
     def to_url(self, where, what=None):
         root = self._find_url_root(where)
         if not root:
@@ -131,9 +131,10 @@ class JavaRefRole(JavalinkEnvAccessor):
         path = where.replace('.', '/').replace('$', '.')
         path += '.html'
         if what:
-            path += '#{}'.format(what)
+            # TODO is this the correct way to escape the URL?
+            path += '#{}'.format(urllib.quote(what, ';/?:@&=+$,()'))
 
-        return root + path
+        return urljoin(root, path)
 
     def _find_class(self, where):
         import_name = where.split('.')[0]
@@ -185,7 +186,7 @@ class JavaRefRole(JavalinkEnvAccessor):
         url, warnings = self.find_url(reftext)
         if url:
             # if no scheme, assume a local path relative to the src root
-            if not urlparse.urlparse(url).scheme:
+            if not urlparse(url).scheme:
                 docdir = os.path.dirname(inliner.document.current_source)
                 url = os.path.relpath(self.env.srcdir, docdir) + '/' + url
 
