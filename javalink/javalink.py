@@ -194,3 +194,48 @@ class JavaRefRole(JavalinkEnvAccessor):
             ref = docutils.nodes.inline(rawsource=title, text=title)
 
         return [ref], [inliner.reporter.warning(w, line=lineno) for w in warnings]
+
+
+def find_rt_jar(javahome=None):
+    if not javahome:
+        if 'JAVA_HOME' in os.environ:
+            javahome = os.environ['JAVA_HOME']
+        else:
+            javahome = _get_javahome_from_java(_find_java_binary())
+
+    rtpath = os.path.join(javahome, 'jre', 'lib', 'rt.jar')
+    if not os.path.isfile(rtpath):
+        # TODO include javahome in this message?
+        # TODO use a better exception class
+        raise Exception('{} does not exist'.format(rtpath))
+
+    return rtpath
+
+
+def _get_javahome_from_java(java):
+    while os.path.islink(java):
+        link = java
+        java = os.readlink(link)
+        if not os.path.isabs(java):
+            java = os.path.join(os.path.dirname(link), java)
+
+    javahome = os.path.join(os.path.dirname(java), '..', '..')
+    return os.path.normpath(javahome)
+
+
+def _find_java_binary():
+    path = os.environ.get('PATH', os.defpath)
+
+    exts = os.environ.get('PATHEXT', '')
+    java_names = ['java' + ext for ext in exts.split(os.pathsep)]
+
+    for p in path.split(os.pathsep):
+        p = p.strip('"')
+        for name in java_names:
+            java = os.path.join(p, name)
+            if os.path.isfile(java) and os.access(java, os.X_OK):
+                return java
+
+    # TODO include possible solutions in this message?
+    # TODO use a better exception class
+    raise Exception('Could not find java executable')
