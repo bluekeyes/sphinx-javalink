@@ -57,7 +57,7 @@ class JavadocImportDirective(rst.Directive, JavalinkEnvAccessor):
         docname = self.env.docname
 
         if not docname in self.imports:
-            self.imports[docname] = []
+            self.imports[docname] = [('java.lang', '*')]
 
         imports = []
         for i in self.content:
