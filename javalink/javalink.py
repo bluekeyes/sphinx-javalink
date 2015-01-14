@@ -1,27 +1,30 @@
+import contextlib
 import os
 import urllib
+import urllib2
 
 import docutils.nodes
 import docutils.utils
 
-from urlparse import urlparse, urljoin
+from urllib import quote as urlquote, pathname2url
+from urlparse import urlparse, urlunparse, urljoin
 
 from docutils.parsers import rst
 from sphinx.util.nodes import split_explicit_title
 from sphinx.errors import ExtensionError
 
 from loader import ClassLoader
+from model import parse_name
 
 def setup(app):
     app.add_config_value('javalink_classpath', [], '')
-    app.add_config_value('javalink_package_roots', {
-        'java': 'http://docs.oracle.com/javase/7/docs/api/',
-        'javax': 'http://docs.oracle.com/javase/7/docs/api/'
-    }, '')
+    app.add_config_value('javalink_docroots', [], '')
 
     app.add_directive('javaimport', JavadocImportDirective)
     app.add_role('javaref', JavaRefRole(app))
 
+    # TODO is this the right time to do this?
+    app.connect('builder-inited', initialize_package_list)
     app.connect('env-purge-doc', purge_imports)
 
 
@@ -63,9 +66,10 @@ class JavadocImportDirective(rst.Directive, JavalinkEnvAccessor):
 
         imports = []
         for i in self.content:
-            package, name = i.strip().rsplit('.', 1)
-            self._validate_import(package, name)
-            imports.append((package, name))
+            package, name = parse_name(i.strip())
+            # TODO make this work with Package objects
+            self._validate_import(package.name, name)
+            imports.append((package.name, name))
 
         self.imports[docname].extend(imports)
         return []
@@ -79,11 +83,6 @@ class JavadocImportDirective(rst.Directive, JavalinkEnvAccessor):
 
         if not entity:
             self.error("unresolved import '{}.{}'".format(package, name))
-
-
-def purge_imports(app, env, docname):
-    if hasattr(env, 'javalink_imports'):
-        env.javalink_imports.pop(docname, None)
 
 
 class JavaRefRole(JavalinkEnvAccessor):
@@ -128,18 +127,19 @@ class JavaRefRole(JavalinkEnvAccessor):
     def to_url(self, where, what=None):
         root = self._find_url_root(where)
         if not root:
+            # TODO this should not fail the build
             raise LookupError("Missing root URL for reference '{}'".format(where))
 
         path = where.replace('.', '/').replace('$', '.')
         path += '.html'
         if what:
             # TODO is this the correct way to escape the URL?
-            path += '#{}'.format(urllib.quote(what, ';/?:@&=+$,()'))
+            path += '#{}'.format(urlquote(what, ';/?:@&=+$,()'))
 
         return urljoin(root, path)
 
     def _find_class(self, where):
-        import_name = where.split('.')[0]
+        import_name = where.partition('.')[0]
         imports = self.imports.get(self.env.docname, [])
 
         candidates = [where]
@@ -165,17 +165,8 @@ class JavaRefRole(JavalinkEnvAccessor):
         return None
 
     def _find_url_root(self, where):
-        roots = self.app.config.javalink_package_roots.items()
-        roots = sorted(roots, key=lambda x: len(x[0]), reverse=True)
-
-        for root, url in roots:
-            if where.startswith(root):
-                if url.endswith('/'):
-                    return url
-                else:
-                    return url + '/'
-
-        return None
+        package, _ = parse_name(where)
+        return self.env.javalink_packages.get(package.name, None)
 
     def __call__(self, name, rawtext, text, lineno, inliner,
                  options={}, content=[]):
@@ -240,3 +231,55 @@ def _find_java_binary():
                 return java
 
     raise ExtensionError("Could not find 'java' binary in PATH")
+
+
+def purge_imports(app, env, docname):
+    if hasattr(env, 'javalink_imports'):
+        env.javalink_imports.pop(docname, None)
+
+
+def initialize_package_list(app):
+    env = app.env
+    app.info('Initializing package list...')
+
+    if not hasattr(env, 'javalink_packages'):
+        env.javalink_packages = {}
+
+    for url, base in [parse_docroot(r) for r in app.config.javalink_docroots]:
+        try:
+            with contextlib.closing(urllib2.urlopen(url)) as package_list:
+                app.verbose('Retrieved package-list at %s', url)
+                for package in package_list:
+                    package = package.strip()
+                    if package not in env.javalink_packages:
+                        env.javalink_packages[package] = base
+                    else:
+                        app.warn("Duplicate package '{}' in {}".format(package, url))
+
+        except urllib2.URLError as e:
+            app.warn('Could not get {}; some links may not resolve'.format(url))
+            app.verbose('Error was %s', e)
+
+
+def parse_docroot(root):
+    """
+    Parses a docroot path or URL into a standard format.
+
+    Returns a tuple of package-list URL and link base
+    """
+
+    scheme, netloc, path = urlparse(root)[0:3]
+    if not scheme:
+        # assume local path; add trailing '/' if missing
+        root = os.path.join(root, '')
+        absroot = os.path.join(os.path.abspath(root), '')
+
+        url = urljoin('file:///', pathname2url(absroot))
+        base = pathname2url(root)
+    else:
+        path = path.rstrip('/') + '/'
+
+        url = urlunparse((scheme, netloc, path, '', '', ''))
+        base = url
+
+    return (urljoin(url, 'package-list'), base)

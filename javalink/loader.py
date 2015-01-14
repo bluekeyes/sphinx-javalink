@@ -88,6 +88,7 @@ class ClassLoader:
 
         return None
 
+    # TODO take either a Package or a string name
     def find_package(self, name):
         package = Package(name.split('.'))
 
