@@ -4,9 +4,11 @@ import urllib
 import docutils.nodes
 import docutils.utils
 
+from urlparse import urlparse, urljoin
+
 from docutils.parsers import rst
 from sphinx.util.nodes import split_explicit_title
-from urlparse import urlparse, urljoin
+from sphinx.errors import ExtensionError
 
 from loader import ClassLoader
 
@@ -207,9 +209,8 @@ def find_rt_jar(javahome=None):
 
     rtpath = os.path.join(javahome, 'jre', 'lib', 'rt.jar')
     if not os.path.isfile(rtpath):
-        # TODO include javahome in this message?
-        # TODO use a better exception class
-        raise Exception('{} does not exist'.format(rtpath))
+        msg = 'Could not find rt.jar: {} is not a file'.format(rtpath)
+        raise ExtensionError(msg)
 
     return rtpath
 
@@ -238,6 +239,4 @@ def _find_java_binary():
             if os.path.isfile(java) and os.access(java, os.X_OK):
                 return java
 
-    # TODO include possible solutions in this message?
-    # TODO use a better exception class
-    raise Exception('Could not find java executable')
+    raise ExtensionError("Could not find 'java' binary in PATH")
