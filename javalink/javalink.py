@@ -95,7 +95,6 @@ class JavaRefRole(JavalinkEnvAccessor):
 
     def find_url(self, reftext):
         reftext = reftext.strip()
-        warnings = []
 
         # TODO add additional validation (see SeeTagImpl.java)
         where, _, what = reftext.partition('#')
@@ -108,27 +107,24 @@ class JavaRefRole(JavalinkEnvAccessor):
                 member = clazz.get_member(what)
                 if member:
                     what = member.get_url_fragment()
-                    return self.to_url(where, what), warnings
+                    return self.to_url(where, what)
                 else:
-                    warnings.append('unknown member: {}'.format(reftext))
-                    return None, warnings
+                    raise JavaRefError('unknown member: {}'.format(reftext))
             else:
-                return self.to_url(where), warnings
+                return self.to_url(where)
 
         if not what:
             package = self.classloader.find_package(where)
             if package:
                 where = package.name + '.package-summary'
-                return self.to_url(where), warnings
+                return self.to_url(where)
 
-        warnings.append('reference not found: {}'.format(reftext))
-        return None, warnings
+        raise JavaRefError('reference not found: {}'.format(reftext))
 
     def to_url(self, where, what=None):
         root = self._find_url_root(where)
         if not root:
-            # TODO this should not fail the build
-            raise LookupError("Missing root URL for reference '{}'".format(where))
+            raise JavaRefError('root URL not found: {}'.format(where))
 
         path = where.replace('.', '/').replace('$', '.')
         path += '.html'
@@ -176,7 +172,13 @@ class JavaRefRole(JavalinkEnvAccessor):
         if not has_title:
             title = title.replace('#', '.')
 
-        url, warnings = self.find_url(reftext)
+        warnings = []
+        try:
+            url = self.find_url(reftext)
+        except JavaRefError as e:
+            url = None
+            warnings.append(e.reason)
+
         if url:
             # if no scheme, assume a local path relative to the src root
             if not urlparse(url).scheme:
@@ -189,6 +191,20 @@ class JavaRefRole(JavalinkEnvAccessor):
             ref = docutils.nodes.literal(rawsource=title, text=title)
 
         return [ref], [inliner.reporter.warning(w, line=lineno) for w in warnings]
+
+
+class JavaRefError(Exception):
+    """Raised when a reference to a Java element cannot be resolved.
+
+    Attributes:
+        reason -- reason why the reference is unresolved
+    """
+
+    def __init__(self, reason):
+        self.reason = reason
+
+    def __str__(self):
+        return str(self.reason)
 
 
 def find_rt_jar(javahome=None):
