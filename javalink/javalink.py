@@ -93,7 +93,7 @@ class JavaRefRole(JavalinkEnvAccessor):
     def env(self):
         return self.app.env
 
-    def find_url(self, reftext):
+    def find_ref(self, reftext):
         reftext = reftext.strip()
 
         # TODO add additional validation (see SeeTagImpl.java)
@@ -105,23 +105,21 @@ class JavaRefRole(JavalinkEnvAccessor):
             if what:
                 # TODO handle member ambiguity
                 member = clazz.get_member(what)
-                if member:
-                    what = member.get_url_fragment()
-                    return self.to_url(where, what)
-                else:
+                if not member:
                     raise JavaRefError('unknown member: {}'.format(reftext))
-            else:
-                return self.to_url(where)
+
+                what = member.get_url_fragment()
+
+            return where, what
 
         if not what:
             package = self.classloader.find_package(where)
             if package:
-                where = package.name + '.package-summary'
-                return self.to_url(where)
+                return package.name + '.package-summary', None
 
         raise JavaRefError('reference not found: {}'.format(reftext))
 
-    def to_url(self, where, what=None):
+    def to_url(self, where, what):
         root = self._find_url_root(where)
         if not root:
             raise JavaRefError('root URL not found: {}'.format(where))
@@ -133,6 +131,20 @@ class JavaRefRole(JavalinkEnvAccessor):
             path += '#{}'.format(urlquote(what, ';/?:@&=+$,()'))
 
         return urljoin(root, path)
+
+    def to_title(self, where, what):
+        package, name = parse_name(where)
+        if name == 'package-summary':
+            return package.name
+
+        title = name.replace('$', '.')
+        if what:
+            if not self.app.config.add_function_parentheses:
+                what = what.partition('(')[0]
+
+            title = '.'.join((title, what))
+
+        return title
 
     def _find_class(self, where):
         import_name = where.partition('.')[0]
@@ -171,10 +183,14 @@ class JavaRefRole(JavalinkEnvAccessor):
         has_title, title, reftext = split_explicit_title(text)
         if not has_title:
             title = title.replace('#', '.')
+            # if not self.app.config.add_function_parentheses:
 
         warnings = []
         try:
-            url = self.find_url(reftext)
+            where, what = self.find_ref(reftext)
+            url = self.to_url(where, what)
+            if not has_title:
+                title = self.to_title(where, what)
         except JavaRefError as e:
             url = None
             warnings.append(e.reason)
@@ -278,15 +294,14 @@ def initialize_package_list(app):
 
 
 def parse_docroot(root):
-    """
-    Parses a docroot path or URL into a standard format.
+    """Parses a docroot path or URL into a standard format.
 
     Returns a tuple of package-list URL and link base
     """
 
     scheme, netloc, path = urlparse(root)[0:3]
     if not scheme:
-        # assume local path; add trailing '/' if missing
+        # assume local path; add trailing '/'s if missing
         root = os.path.join(root, '')
         absroot = os.path.join(os.path.abspath(root), '')
 
