@@ -294,9 +294,23 @@ def initialize_package_list(app):
 
 
 def parse_docroot(root):
-    """Parses a docroot path or URL into a standard format.
+    """
+    Creates a package-list URL and a link base from a docroot
+    element.
+    """
 
-    Returns a tuple of package-list URL and link base
+    if isinstance(root, basestring):
+        return _parse_docroot_str(root)
+    else:
+        url = _parse_docroot_str(root[0])[0]
+        base = _parse_docroot_str(root[1])[1]
+        return (url, base)
+
+
+def _parse_docroot_str(root):
+    """
+    Creates a package-list URL and a link base from a docroot path or
+    URL string.
     """
 
     scheme, netloc, path = urlparse(root)[0:3]
