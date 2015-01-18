@@ -20,6 +20,9 @@ def setup(app):
     app.add_config_value('javalink_classpath', [], '')
     app.add_config_value('javalink_docroots', [], '')
 
+    app.add_config_value('javalink_add_package_names', True, '')
+    app.add_config_value('javalink_qualify_nested_types', True, '')
+
     app.add_directive('javaimport', JavadocImportDirective)
     app.add_role('javaref', JavaRefRole(app))
 
@@ -137,14 +140,26 @@ class JavaRefRole(JavalinkEnvAccessor):
         if name == 'package-summary':
             return package.name
 
-        title = name.replace('$', '.')
+        add_package_names = self.app.config.javalink_add_package_names
+        qualify_nested_types = self.app.config.javalink_qualify_nested_types
+        add_function_parentheses = self.app.config.add_function_parentheses
+
+        title = []
+        if add_package_names:
+            title.append(package.name)
+
+        if add_package_names or qualify_nested_types:
+            title.append(name.replace('$', '.'))
+        else:
+            title.append(name.rpartition('$')[-1])
+
         if what:
-            if not self.app.config.add_function_parentheses:
-                what = what.partition('(')[0]
+            if add_function_parentheses:
+                title.append(what)
+            else:
+                title.append(what.partition('(')[0])
 
-            title = '.'.join((title, what))
-
-        return title
+        return '.'.join(title)
 
     def _find_class(self, where):
         import_name = where.partition('.')[0]
