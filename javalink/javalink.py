@@ -22,6 +22,7 @@ def setup(app):
 
     app.add_config_value('javalink_add_package_names', True, '')
     app.add_config_value('javalink_qualify_nested_types', True, '')
+    app.add_config_value('javalink_add_method_parameters', True, '')
 
     app.add_directive('javaimport', JavadocImportDirective)
     app.add_role('javaref', JavaRefRole(app))
@@ -142,7 +143,7 @@ class JavaRefRole(JavalinkEnvAccessor):
 
         add_package_names = self.app.config.javalink_add_package_names
         qualify_nested_types = self.app.config.javalink_qualify_nested_types
-        add_function_parentheses = self.app.config.add_function_parentheses
+        add_method_parameters = self.app.config.javalink_add_method_parameters
 
         title = []
         if add_package_names:
@@ -154,7 +155,7 @@ class JavaRefRole(JavalinkEnvAccessor):
             title.append(name.rpartition('$')[-1])
 
         if what:
-            if add_function_parentheses:
+            if add_method_parameters:
                 title.append(what)
             else:
                 title.append(what.partition('(')[0])

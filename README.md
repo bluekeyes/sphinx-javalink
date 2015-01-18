@@ -45,11 +45,11 @@ at a local path will not be available from the built and published
 documentation. This also allows offline builds, by downloading all remote
 `package-list` files ahead of time.
 
-#### `add_function_parentheses`
+#### `javalink_add_method_parameters`
 
 _Default:_ `True`
 
-A boolean that determines if argument lists and parentheses are appended to
+A boolean that determines if parameter lists and parentheses are appended to
 generated method references. References with explicit titles are not modified.
 
 #### `javalink_add_package_names`
