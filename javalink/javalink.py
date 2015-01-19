@@ -1,5 +1,6 @@
 import contextlib
 import os
+import traceback
 import urllib
 import urllib2
 
@@ -10,33 +11,51 @@ from urllib import quote as urlquote, pathname2url
 from urlparse import urlparse, urlunparse, urljoin
 
 from docutils.parsers import rst
-from sphinx.util.nodes import split_explicit_title
 from sphinx.errors import ExtensionError
+from sphinx.util.nodes import split_explicit_title
 
 from loader import ClassLoader
 from model import parse_name
 
 def setup(app):
-    app.add_config_value('javalink_classpath', [], '')
-    app.add_config_value('javalink_docroots', [], '')
+    app.add_config_value('javalink_classpath', [], 'env')
+    app.add_config_value('javalink_docroots', [], 'env')
 
-    app.add_config_value('javalink_add_package_names', True, '')
-    app.add_config_value('javalink_qualify_nested_types', True, '')
-    app.add_config_value('javalink_add_method_parameters', True, '')
+    app.add_config_value('javalink_add_package_names', True, 'env')
+    app.add_config_value('javalink_qualify_nested_types', True, 'env')
+    app.add_config_value('javalink_add_method_parameters', True, 'env')
 
     app.add_directive('javaimport', JavadocImportDirective)
     app.add_role('javaref', JavaRefRole(app))
 
-    # TODO is this the right time to do this?
+    # initialize_package_list must happen after validate_env
+    app.connect('builder-inited', validate_env)
     app.connect('builder-inited', initialize_package_list)
+
     app.connect('env-purge-doc', purge_imports)
 
 
-class JavalinkEnvAccessor:
-    @property
-    def env(self):
-        pass
+# configuration values that persist information in the environment
+_env_config_values = {
+    'javalink_classpath': 'javalink_classloader',
+    'javalink_docroots': 'javalink_packages'
+}
 
+def validate_env(app):
+    if not hasattr(app.env, 'javalink_config_cache'):
+        app.env.javalink_config_cache = {}
+
+    for conf_attr, env_attr in _env_config_values.items():
+        value = getattr(app.config, conf_attr)
+        cached = app.env.javalink_config_cache.get(conf_attr, value)
+
+        app.env.javalink_config_cache[conf_attr] = value
+        if value != cached:
+            app.verbose('[javalink] config.%s has changed, clearing related env', conf_attr)
+            delattr(app.env, env_attr)
+
+
+class JavalinkEnvAccessor:
     @property
     def classloader(self):
         if not hasattr(self.env, 'javalink_classloader'):
@@ -102,7 +121,6 @@ class JavaRefRole(JavalinkEnvAccessor):
 
         # TODO add additional validation (see SeeTagImpl.java)
         where, _, what = reftext.partition('#')
-
         clazz = self._find_class(where)
         if clazz:
             where = clazz.full_name
@@ -288,25 +306,25 @@ def purge_imports(app, env, docname):
 
 def initialize_package_list(app):
     env = app.env
-    app.info('Initializing package list...')
+    if hasattr(env, 'javalink_packages'):
+        return
 
-    if not hasattr(env, 'javalink_packages'):
-        env.javalink_packages = {}
+    app.verbose('[javalink] initializing package list...')
+    env.javalink_packages = {}
 
     for url, base in [parse_docroot(r) for r in app.config.javalink_docroots]:
         try:
             with contextlib.closing(urllib2.urlopen(url)) as package_list:
-                app.verbose('Retrieved package-list at %s', url)
                 for package in package_list:
                     package = package.strip()
                     if package not in env.javalink_packages:
                         env.javalink_packages[package] = base
                     else:
-                        app.warn("Duplicate package '{}' in {}".format(package, url))
+                        app.warn("[javalink] duplicate package '{}' in {}".format(package, url))
 
         except urllib2.URLError as e:
-            app.warn('Could not get {}; some links may not resolve'.format(url))
-            app.verbose('Error was %s', e)
+            app.warn('[javalink] could not get {}; some links may not resolve'.format(url))
+            app.verbose('[javalink] %s', traceback.format_exc())
 
 
 def parse_docroot(root):
