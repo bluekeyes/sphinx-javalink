@@ -1,6 +1,6 @@
 import re
 
-_primitive_types = {
+_PRIMITIVE_TYPES = {
     'B': 'byte',
     'C': 'char',
     'D': 'double',
@@ -12,7 +12,7 @@ _primitive_types = {
 }
 
 
-class Package:
+class Package(object):
     def __init__(self, parts):
         self.parts = tuple(parts)
         self.name = '.'.join(self.parts)
@@ -39,7 +39,7 @@ def parse_name(name, separator='.'):
     return (Package(parts[:-1]), parts[-1])
 
 
-class LinkableClass:
+class LinkableClass(object):
     def __init__(self, class_info):
         self.package, self.name = parse_name(class_info.get_this(), '/')
         self.full_name = '{}.{}'.format(self.package, self.name)
@@ -74,7 +74,7 @@ class LinkableClass:
         return '{}.{}'.format(self.package.name, self.name)
 
 
-class LinkableField:
+class LinkableField(object):
     def __init__(self, field):
         self.name = field.get_name()
 
@@ -85,7 +85,7 @@ class LinkableField:
         return self.get_url_fragment()
 
 
-class LinkableMethod:
+class LinkableMethod(object):
     def __init__(self, class_name, method):
         name = method.get_name()
         if name == '<init>':
@@ -99,7 +99,7 @@ class LinkableMethod:
 
     def has_args(self, args):
         if len(args) != len(self.args):
-            return False;
+            return False
 
         for arg, a in zip(args, self.args):
             if not a.endswith(arg):
@@ -108,13 +108,14 @@ class LinkableMethod:
         return True
 
     def get_url_fragment(self):
-        return '{}({})'.format(self.name, ', '.join(map(str, self.args)))
+        args = ', '.join([str(a) for a in self.args])
+        return '{}({})'.format(self.name, args)
 
     def __str__(self):
         return self.get_url_fragment()
 
 
-class Argument:
+class Argument(object):
     def __init__(self, arg, sig=None):
         self.parts = arg.split('.')
         if sig:
@@ -167,8 +168,8 @@ def parse_signature_args(sig):
 # signatures. When that is implemented, check if it can be used.
 def _next_arg(s):
     c = s[0]
-    if c in _primitive_types:
-        return (_primitive_types[c], s[1:])
+    if c in _PRIMITIVE_TYPES:
+        return (_PRIMITIVE_TYPES[c], s[1:])
     elif c == 'T':
         i = s.find(';')
         return (s[1:i], s[i+1:])

@@ -1,7 +1,6 @@
 import contextlib
 import os
 import traceback
-import urllib
 import urllib2
 
 import docutils.nodes
@@ -36,7 +35,7 @@ def setup(app):
 
 
 # configuration values that persist information in the environment
-_env_config_values = {
+_ENV_CONFIG_VALUES = {
     'javalink_classpath': 'javalink_classloader',
     'javalink_docroots': 'javalink_packages'
 }
@@ -45,7 +44,7 @@ def validate_env(app):
     if not hasattr(app.env, 'javalink_config_cache'):
         app.env.javalink_config_cache = {}
 
-    for conf_attr, env_attr in _env_config_values.items():
+    for conf_attr, env_attr in _ENV_CONFIG_VALUES.iteritems():
         value = getattr(app.config, conf_attr)
         cached = app.env.javalink_config_cache.get(conf_attr, value)
 
@@ -55,7 +54,11 @@ def validate_env(app):
             delattr(app.env, env_attr)
 
 
-class JavalinkEnvAccessor:
+class JavalinkEnvAccessor(object):
+    @property
+    def env(self):
+        pass
+
     @property
     def classloader(self):
         if not hasattr(self.env, 'javalink_classloader'):
@@ -322,7 +325,7 @@ def initialize_package_list(app):
                     else:
                         app.warn("[javalink] duplicate package '{}' in {}".format(package, url))
 
-        except urllib2.URLError as e:
+        except urllib2.URLError:
             app.warn('[javalink] could not get {}; some links may not resolve'.format(url))
             app.verbose('[javalink] %s', traceback.format_exc())
 

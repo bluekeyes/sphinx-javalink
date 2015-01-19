@@ -6,7 +6,7 @@ import zipfile
 from javatools import ziputils
 from model import LinkableClass, Package, parse_name
 
-class PackageContents:
+class PackageContents(object):
     def __init__(self):
         self.contents = {}
 
@@ -49,10 +49,10 @@ def open_classpath_entry(entry):
         raise ValueError('Invalid classpath entry: {}'.format(entry))
 
 
-class ClassLoader:
+class ClassLoader(object):
     def __init__(self, paths):
-        entries = map(expand_classpath_entry, paths)
-        self.entries = list(itertools.chain.from_iterable(entries))
+        entries = [expand_classpath_entry(p) for p in paths]
+        self.entries = list(itertools.chain.from_iterable(entries)) # flatten
 
         # Package --> PackageContents
         self.packages = {}
