@@ -4,21 +4,8 @@ import os
 import zipfile
 
 from javatools import ziputils
+
 from model import LinkableClass, Package, parse_name
-
-class PackageContents(object):
-    def __init__(self):
-        self.contents = {}
-
-    def add_class(self, linkable_class):
-        self.contents[linkable_class.name] = linkable_class
-
-    def get_class(self, name):
-        return self.contents[name]
-
-    def __getitem__(self, key):
-        return self.get_class(key)
-
 
 def extract_class(jar, name):
     with jar.open(name) as entry:
@@ -54,7 +41,7 @@ class ClassLoader(object):
         entries = [expand_classpath_entry(p) for p in paths]
         self.entries = list(itertools.chain.from_iterable(entries)) # flatten
 
-        # Package --> PackageContents
+        # {Package : {class name : LinkableClass}}
         self.packages = {}
 
     def load(self, name):
@@ -69,9 +56,8 @@ class ClassLoader(object):
                     msg = "Wanted class '{}', but '{}' was loaded"
                     raise ValueError(msg.format(name, clazz))
 
-                if not clazz.package in self.packages:
-                    self.packages[clazz.package] = PackageContents()
-                self.packages[clazz.package].add_class(clazz)
+                classes = self.packages.setdefault(package, {})
+                classes[class_name] = clazz
 
             return clazz
 
@@ -103,13 +89,10 @@ class ClassLoader(object):
                     pass
                 else:
                     # TODO avoid changing state in find method
-                    self.packages[package] = PackageContents()
+                    self.packages[package] = {}
                     return package
 
         return None
-
-    def get_packages(self):
-        return [p.name for p in self.packages.keys()]
 
 
 class ExplodedZipFile(ziputils.ExplodedZipFile):
