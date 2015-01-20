@@ -86,18 +86,15 @@ class JavadocImportDirective(rst.Directive, JavalinkEnvAccessor):
 
     def run(self):
         docname = self.env.docname
+        imports = self.imports.setdefault(docname, [('java.lang', '*')])
 
-        if not docname in self.imports:
-            self.imports[docname] = [('java.lang', '*')]
-
-        imports = []
         for i in self.content:
             package, name = parse_name(i.strip())
-            # TODO make this work with Package objects
-            self._validate_import(package.name, name)
-            imports.append((package.name, name))
+            if (package.name, name) not in imports:
+                # TODO make this work with Package objects
+                self._validate_import(package.name, name)
+                imports.append((package.name, name))
 
-        self.imports[docname].extend(imports)
         return []
 
     # TODO handle conflicting imports
