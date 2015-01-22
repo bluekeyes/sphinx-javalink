@@ -10,51 +10,22 @@ from urllib import quote as urlquote, pathname2url
 from urlparse import urlparse, urlunparse, urljoin
 
 from docutils.parsers import rst
-from sphinx.errors import ExtensionError
 from sphinx.util.nodes import split_explicit_title
 
-from loader import ClassLoader
-from model import parse_name
-
-def setup(app):
-    app.add_config_value('javalink_classpath', [], 'env')
-    app.add_config_value('javalink_docroots', [], 'env')
-
-    app.add_config_value('javalink_add_package_names', True, 'env')
-    app.add_config_value('javalink_qualify_nested_types', True, 'env')
-    app.add_config_value('javalink_add_method_parameters', True, 'env')
-
-    app.add_directive('javaimport', JavadocImportDirective)
-    app.add_role('javaref', JavaRefRole(app))
-
-    # initialize_package_list must happen after validate_env
-    app.connect('builder-inited', validate_env)
-    app.connect('builder-inited', initialize_package_list)
-
-    app.connect('env-purge-doc', purge_imports)
+from .loader import ClassLoader
+from .model import parse_name
 
 
-# configuration values that persist information in the environment
-_ENV_CONFIG_VALUES = {
-    'javalink_classpath': 'javalink_classloader',
-    'javalink_docroots': 'javalink_packages'
+CONFIG_VALUES = {
+    'javalink_classpath': ([], 'env', 'javalink_classloader'),
+    'javalink_docroots': ([], 'env', 'javalink_packages'),
+    'javalink_add_package_names': (True, 'env', None),
+    'javalink_qualify_nested_types': (True, 'env', None),
+    'javalink_add_method_parameters': (True, 'env', None)
 }
 
-def validate_env(app):
-    if not hasattr(app.env, 'javalink_config_cache'):
-        app.env.javalink_config_cache = {}
 
-    for conf_attr, env_attr in _ENV_CONFIG_VALUES.iteritems():
-        value = getattr(app.config, conf_attr)
-        cached = app.env.javalink_config_cache.get(conf_attr, value)
-
-        app.env.javalink_config_cache[conf_attr] = value
-        if value != cached:
-            app.verbose('[javalink] config.%s has changed, clearing related env', conf_attr)
-            delattr(app.env, env_attr)
-
-
-class JavalinkEnvAccessor(object):
+class EnvAccessor(object):
     @property
     def env(self):
         pass
@@ -75,7 +46,7 @@ class JavalinkEnvAccessor(object):
         return self.env.javalink_imports
 
 
-class JavadocImportDirective(rst.Directive, JavalinkEnvAccessor):
+class JavarefImportDirective(rst.Directive, EnvAccessor):
     required_arguments = 0
     optional_arguments = 0
     has_content = True
@@ -108,7 +79,12 @@ class JavadocImportDirective(rst.Directive, JavalinkEnvAccessor):
             self.error("unresolved import '{}.{}'".format(package, name))
 
 
-class JavaRefRole(JavalinkEnvAccessor):
+def purge_imports(app, env, docname):
+    if hasattr(env, 'javalink_imports'):
+        env.javalink_imports.pop(docname, None)
+
+
+class JavarefRole(EnvAccessor):
     def __init__(self, app):
         self.app = app
 
@@ -128,7 +104,7 @@ class JavaRefRole(JavalinkEnvAccessor):
                 # TODO handle member ambiguity
                 member = clazz.get_member(what)
                 if not member:
-                    raise JavaRefError('unknown member: {}'.format(reftext))
+                    raise JavarefError('unknown member: {}'.format(reftext))
 
                 what = member.get_url_fragment()
 
@@ -139,12 +115,12 @@ class JavaRefRole(JavalinkEnvAccessor):
             if package:
                 return package.name + '.package-summary', None
 
-        raise JavaRefError('reference not found: {}'.format(reftext))
+        raise JavarefError('reference not found: {}'.format(reftext))
 
     def to_url(self, where, what):
         root = self._find_url_root(where)
         if not root:
-            raise JavaRefError('root URL not found: {}'.format(where))
+            raise JavarefError('root URL not found: {}'.format(where))
 
         path = where.replace('.', '/').replace('$', '.')
         path += '.html'
@@ -215,9 +191,6 @@ class JavaRefRole(JavalinkEnvAccessor):
 
         text = docutils.utils.unescape(text)
         has_title, title, reftext = split_explicit_title(text)
-        if not has_title:
-            title = title.replace('#', '.')
-            # if not self.app.config.add_function_parentheses:
 
         warnings = []
         try:
@@ -225,7 +198,7 @@ class JavaRefRole(JavalinkEnvAccessor):
             url = self.to_url(where, what)
             if not has_title:
                 title = self.to_title(where, what)
-        except JavaRefError as e:
+        except JavarefError as e:
             url = None
             warnings.append(e.reason)
 
@@ -243,11 +216,11 @@ class JavaRefRole(JavalinkEnvAccessor):
         return [ref], [inliner.reporter.warning(w, line=lineno) for w in warnings]
 
 
-class JavaRefError(Exception):
+class JavarefError(Exception):
     """Raised when a reference to a Java element cannot be resolved.
 
     Attributes:
-        reason -- reason why the reference is unresolved
+        reason: reason why the reference is unresolved
     """
 
     def __init__(self, reason):
@@ -255,53 +228,6 @@ class JavaRefError(Exception):
 
     def __str__(self):
         return str(self.reason)
-
-
-def find_rt_jar(javahome=None):
-    if not javahome:
-        if 'JAVA_HOME' in os.environ:
-            javahome = os.environ['JAVA_HOME']
-        else:
-            javahome = _get_javahome_from_java(_find_java_binary())
-
-    rtpath = os.path.join(javahome, 'jre', 'lib', 'rt.jar')
-    if not os.path.isfile(rtpath):
-        msg = 'Could not find rt.jar: {} is not a file'.format(rtpath)
-        raise ExtensionError(msg)
-
-    return rtpath
-
-
-def _get_javahome_from_java(java):
-    while os.path.islink(java):
-        link = java
-        java = os.readlink(link)
-        if not os.path.isabs(java):
-            java = os.path.join(os.path.dirname(link), java)
-
-    javahome = os.path.join(os.path.dirname(java), '..', '..')
-    return os.path.normpath(javahome)
-
-
-def _find_java_binary():
-    path = os.environ.get('PATH', os.defpath)
-
-    exts = os.environ.get('PATHEXT', '')
-    java_names = ['java' + ext for ext in exts.split(os.pathsep)]
-
-    for p in path.split(os.pathsep):
-        p = p.strip('"')
-        for name in java_names:
-            java = os.path.join(p, name)
-            if os.path.isfile(java) and os.access(java, os.X_OK):
-                return java
-
-    raise ExtensionError("Could not find 'java' binary in PATH")
-
-
-def purge_imports(app, env, docname):
-    if hasattr(env, 'javalink_imports'):
-        env.javalink_imports.pop(docname, None)
 
 
 def initialize_package_list(app):

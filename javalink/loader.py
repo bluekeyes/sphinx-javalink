@@ -5,9 +5,19 @@ import zipfile
 
 from javatools import ziputils
 
-from model import LinkableClass, Package, parse_name
+from .model import LinkableClass, Package, parse_name
 
 def extract_class(jar, name):
+    """Extracts a LinkableClass from a jar.
+
+    Args:
+        jar: An open ZipFile instance.
+        name: A string containing the binary name of a class.
+
+    Raises:
+        KeyError: The class does not exist in the jar.
+    """
+
     with jar.open(name) as entry:
         return LinkableClass(javatools.unpack_class(entry))
 
@@ -96,6 +106,14 @@ class ClassLoader(object):
 
 
 class ExplodedZipFile(ziputils.ExplodedZipFile):
+    """A ZipFile-like object that wraps a directory.
+
+    Changes the behavior of javatools.ziputils.ExplodedZipFile to be
+    more consistent with zipfile.ZipFile by raising a KeyError if an
+    entry does not exist. It also provides a closing context for use in
+    ``with`` statements.
+    """
+
     def open(self, name, mode='rb'):
         if not os.path.isfile(os.path.join(self.fn, name)):
             raise KeyError("There is no item named '{}' in the archive".format(name))
