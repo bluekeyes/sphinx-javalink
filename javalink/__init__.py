@@ -5,6 +5,12 @@ from sphinx.errors import ExtensionError
 from . import ref
 
 def setup(app):
+    """Register the extension with Sphinx.
+
+    Args:
+        app: The Sphinx application.
+    """
+
     for name, (default, rebuild, _) in ref.CONFIG_VALUES.iteritems():
         app.add_config_value(name, default, rebuild)
 
@@ -19,6 +25,18 @@ def setup(app):
 
 
 def validate_env(app):
+    """Purge expired values from the environment.
+
+    When certain configuration values change, related values in the
+    environment must be cleared. While Sphinx can rebuild documents on
+    configuration changes, it does not notify extensions when this
+    happens. Instead, cache relevant values in the environment in order
+    to detect when they change.
+
+    Args:
+        app: The Sphinx application.
+    """
+
     if not hasattr(app.env, 'javalink_config_cache'):
         app.env.javalink_config_cache = {}
 
@@ -36,6 +54,23 @@ def validate_env(app):
 
 
 def find_rt_jar(javahome=None):
+    """Find the path to the Java standard library jar.
+
+    The jar is expected to exist at the path 'jre/lib/rt.jar' inside a
+    standard Java installation directory. The directory is found using
+    the following procedure:
+
+    1. If the javehome argument is provided, use the value as the
+       directory.
+    2. If the JAVA_HOME environment variable is set, use the value as
+       the directory.
+    3. Find the location of the ``java`` binary in the current PATH and
+       compute the installation directory from this location.
+
+    Args:
+        javahome: A path to a Java installation directory (optional).
+    """
+
     if not javahome:
         if 'JAVA_HOME' in os.environ:
             javahome = os.environ['JAVA_HOME']
