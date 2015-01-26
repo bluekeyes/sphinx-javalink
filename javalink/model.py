@@ -64,7 +64,11 @@ class LinkableClass(object):
                 if args is None:
                     return method
 
-                arglist = [a.strip() for a in args.split(',')]
+                if args.strip():
+                    arglist = [a.strip() for a in args.split(',')]
+                else:
+                    arglist = []
+
                 if method.has_args(arglist):
                     return method
 
