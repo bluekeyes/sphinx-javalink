@@ -206,7 +206,8 @@ class JavarefRole(EnvAccessor):
             # if no scheme, assume a local path relative to the src root
             if not urlparse(url).scheme:
                 docdir = os.path.dirname(inliner.document.current_source)
-                url = os.path.relpath(self.env.srcdir, docdir) + '/' + url
+                if docdir != self.env.srcdir:
+                    url = os.path.relpath(self.env.srcdir, docdir) + '/' + url
 
             ref = docutils.nodes.reference('', '', internal=False, refuri=url)
             ref.append(docutils.nodes.literal(rawsource=title, text=title))
