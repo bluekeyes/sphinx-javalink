@@ -17,7 +17,7 @@ See the `GitHub project`_ for documentation.
 
 setup(
     name='sphinx-javalink',
-    version='0.9.0',
+    version='0.9.1',
 
     description='Link to Javadoc APIs from Sphinx documentation',
     long_description=long_description,
