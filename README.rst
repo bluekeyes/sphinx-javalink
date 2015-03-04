@@ -9,11 +9,13 @@ A Sphinx_ extension for linking to ``javadoc``-generated API documentation.
 Installation
 ============
 
-``sphinx-javalink`` is availabe from PyPI:
+``sphinx-javalink`` is availabe from PyPI_:
 
 .. code-block:: console
 
     pip install sphinx-javalink
+
+.. _PyPI: https://pypi.python.org/pypi/sphinx-javalink
 
 Usage
 =====
