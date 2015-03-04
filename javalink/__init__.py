@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 
 from sphinx.errors import ExtensionError
 
@@ -74,6 +76,11 @@ def find_rt_jar(javahome=None):
     if not javahome:
         if 'JAVA_HOME' in os.environ:
             javahome = os.environ['JAVA_HOME']
+        elif sys.platform == 'darwin':
+            # The default java binary on OS X is not part of a standard Oracle
+            # install, so building paths relative to it does not work like it
+            # does on other platforms.
+            javahome = _find_osx_javahome()
         else:
             javahome = _get_javahome_from_java(_find_java_binary())
 
@@ -83,6 +90,10 @@ def find_rt_jar(javahome=None):
         raise ExtensionError(msg)
 
     return rtpath
+
+
+def _find_osx_javahome():
+    return subprocess.check_output(['/usr/libexec/java_home']).strip()
 
 
 def _get_javahome_from_java(java):
