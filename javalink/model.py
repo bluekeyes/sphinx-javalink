@@ -97,9 +97,13 @@ class LinkableMethod(object):
         else:
             self.name = name
 
-        bin_args = method.pretty_arg_types()
-        sig_args = parse_signature_args(method.get_signature())
-        self.args = map(Argument, bin_args, sig_args)
+        args = method.pretty_arg_types()
+        arg_signatures = get_arg_signatures(method.get_signature())
+
+        # 'None' extension behavior of map is important
+        self.args = map(Argument, args, arg_signatures)
+        if self.args:
+            self.args[-1].vararg = method.is_varargs()
 
     def has_args(self, args):
         if len(args) != len(self.args):
@@ -120,29 +124,40 @@ class LinkableMethod(object):
 
 
 class Argument(object):
-    def __init__(self, arg, sig=None):
+    def __init__(self, arg, sig=None, vararg=False):
         self.parts = arg.split('.')
         if sig:
             self.sig_parts = sig.split('.')
         else:
-            self.sig_parts = None
+            self.sig_parts = []
+        self.vararg = vararg
 
     def endswith(self, arg):
-        arg_parts = arg.split('.')
+        # standardize varargs to array syntax
+        arg_parts = arg.replace('...', '[]').split('.')
+
         if len(arg_parts) > len(self.parts):
             return False
 
         endswith = self.parts[-len(arg_parts):] == arg_parts
+        if not endswith:
+            endswith = self.parts[-len(arg_parts):] == arg_parts
+
         if not endswith and self.sig_parts:
             endswith = self.sig_parts[-len(arg_parts):] == arg_parts
 
         return endswith
 
     def __str__(self):
-        if self.sig_parts:
-            return '.'.join(self.sig_parts)
+        arg_str = '.'.join(self.sig_parts)
+        if not arg_str:
+            arg_str = '.'.join(self.parts)
+
+        if self.vararg:
+            # replace trailing '[]' with '...'
+            return arg_str[:-2] + '...'
         else:
-            return '.'.join(self.parts)
+            return arg_str
 
 
 def is_linkable_method(method_info):
@@ -151,7 +166,7 @@ def is_linkable_method(method_info):
                 method_info.get_name() == '<clinit>')
 
 
-def parse_signature_args(sig):
+def get_arg_signatures(sig):
     if sig is None:
         return []
 
