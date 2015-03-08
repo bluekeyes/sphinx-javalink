@@ -25,6 +25,10 @@ CONFIG_VALUES = {
 }
 
 
+def abspath(root, path):
+    return os.path.normpath(os.path.join(root, path))
+
+
 class EnvAccessor(object):
     @property
     def env(self):
@@ -34,7 +38,8 @@ class EnvAccessor(object):
     def classloader(self):
         if not hasattr(self.env, 'javalink_classloader'):
             classpath = self.env.config.javalink_classpath
-            self.env.javalink_classloader = ClassLoader(classpath)
+            loader = ClassLoader([abspath(self.env.srcdir, p) for p in classpath])
+            self.env.javalink_classloader = loader
 
         return self.env.javalink_classloader
 
@@ -239,7 +244,7 @@ def initialize_package_list(app):
     app.verbose('[javalink] initializing package list...')
     env.javalink_packages = {}
 
-    for url, base in [parse_docroot(r) for r in app.config.javalink_docroots]:
+    for url, base in [parse_docroot(env.srcdir, r) for r in app.config.javalink_docroots]:
         try:
             with contextlib.closing(urllib2.urlopen(url)) as package_list:
                 for package in package_list:
@@ -254,31 +259,28 @@ def initialize_package_list(app):
             app.verbose('[javalink] %s', traceback.format_exc())
 
 
-def parse_docroot(root):
-    """
-    Creates a package-list URL and a link base from a docroot
-    element.
+def parse_docroot(srcdir, root):
+    """Creates a package-list URL and a link base from a docroot element.
+
+    Args:
+        srcdir: the Sphinx source directory
+        root: the docroot element [string or tuple]
     """
 
     if isinstance(root, basestring):
-        return _parse_docroot_str(root)
+        return _parse_docroot_str(srcdir, root)
     else:
-        url = _parse_docroot_str(root[0])[0]
-        base = _parse_docroot_str(root[1])[1]
+        url = _parse_docroot_str(srcdir, root[0])[0]
+        base = _parse_docroot_str(srcdir, root[1])[1]
         return (url, base)
 
 
-def _parse_docroot_str(root):
-    """
-    Creates a package-list URL and a link base from a docroot path or
-    URL string.
-    """
-
+def _parse_docroot_str(srcdir, root):
     scheme, netloc, path = urlparse(root)[0:3]
     if not scheme:
         # assume local path; add trailing '/'s if missing
         root = os.path.join(root, '')
-        absroot = os.path.join(os.path.abspath(root), '')
+        absroot = os.path.join(abspath(srcdir, root), '')
 
         url = urljoin('file:///', pathname2url(absroot))
         base = pathname2url(root)
