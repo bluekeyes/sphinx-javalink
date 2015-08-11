@@ -101,15 +101,30 @@ A list of paths or URLs referencing existing Javadoc documentation that can be
 the target of links. A valid |package-list|_ file must exist in the directory
 specified by the path or URL.
 
-List elements may be either strings or tuples of strings. For tuples, the first
-element is used to find the ``package-list`` file and the second is used as the
-base for generated links. This is useful when the ``package-list`` is available
-at a local path that is not available from the built and published
-documentation. This also allows offline builds, by downloading all remote
-``package-list`` files ahead of time.
+List elements can take two forms:
+
+1. A string: ``root``
+2. A dictionary with the following format: ``{'root' : 'http://docs.org/java/api/', 'base': '../api/', 'version': 8}``
+
+The ``base`` and ``version`` keys are optional, in which case the dictionary is
+equivalent to providing a string. The default base is the same as ``root`` and
+the default version is specified by ``javalink_default_version``.
+When ``base`` is defined, ``root`` is used to find the ``package-list`` file
+and ``base`` is used as the base for generated links.
+This is useful when the ``package-list`` is available at a local path that is not
+available from the built and published documentation. This also allows offline
+builds, by downloading all remote ``package-list`` files ahead of time.
 
 .. |package-list| replace:: ``package-list``
 .. _package-list: http://docs.oracle.com/javase/7/docs/technotes/tools/windows/javadoc.html#linkpackagelist
+
+``javalink_default_version``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+*Default:* ``7``
+
+An integer that defines the default formatting of the anchors of the Javadoc.
+You can override this default for each docroot.
 
 ``javalink_add_method_parameters``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
