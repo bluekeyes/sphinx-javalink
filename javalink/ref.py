@@ -19,6 +19,7 @@ from .model import parse_name
 CONFIG_VALUES = {
     'javalink_classpath': ([], 'env', 'javalink_classloader'),
     'javalink_docroots': ([], 'env', 'javalink_packages'),
+    'javalink_default_version': (7, 'env', None),
     'javalink_add_package_names': (True, 'env', None),
     'javalink_qualify_nested_types': (True, 'env', None),
     'javalink_add_method_parameters': (True, 'env', None)
@@ -129,12 +130,22 @@ class JavarefRole(EnvAccessor):
 
         path = where.replace('.', '/').replace('$', '.')
         path += '.html'
+        
         if what:
-            # TODO is this the correct way to escape the URL?
-            path += '#{}'.format(urlquote(what, ';/?:@&=+$,()'))
+            java_version = self._find_java_version(where)
+            
+            path += self.to_anchor(java_version, what)
 
         return urljoin(root, path)
 
+    def to_anchor(self, java_version, what):
+        if java_version > 7:
+            # Javadoc from version 8 uses dashes https://youtrack.jetbrains.com/issue/IDEA-118970
+            what = what.replace('(','-').replace(')','-').replace(', ','-')
+        
+        # TODO is this the correct way to escape the URL?
+        return '#{}'.format(urlquote(what, ';/?:@&=+$,()-'))
+    
     def to_title(self, where, what):
         package, name = parse_name(where)
         if name == 'package-summary':
@@ -191,6 +202,10 @@ class JavarefRole(EnvAccessor):
         package, _ = parse_name(where)
         return self.env.javalink_packages.get(package.name, None)
 
+    def _find_java_version(self, where):
+        package, _ = parse_name(where)
+        return self.env.javalink_packages_versions.get(package.name, self.app.config.javalink_default_version)
+
     def __call__(self, name, rawtext, text, lineno, inliner,
                  options={}, content=[]):
 
@@ -238,19 +253,21 @@ class JavarefError(Exception):
 
 def initialize_package_list(app):
     env = app.env
-    if hasattr(env, 'javalink_packages'):
+    if hasattr(env, 'javalink_packages') and hasattr(env, 'javalink_packages_versions'):
         return
 
     app.verbose('[javalink] initializing package list...')
     env.javalink_packages = {}
+    env.javalink_packages_versions = {}
 
-    for url, base in [parse_docroot(env.srcdir, r) for r in app.config.javalink_docroots]:
+    for docroot_dict in [normalize_docroot(app, r) for r in app.config.javalink_docroots]:
         try:
-            with contextlib.closing(urllib2.urlopen(url)) as package_list:
+            with contextlib.closing(urllib2.urlopen(docroot_dict['root'])) as package_list:
                 for package in package_list:
                     package = package.strip()
                     if package not in env.javalink_packages:
-                        env.javalink_packages[package] = base
+                        env.javalink_packages[package] = docroot_dict['base']
+                        env.javalink_packages_versions[package] = docroot_dict['version']
                     else:
                         app.warn("[javalink] duplicate package '{}' in {}".format(package, url))
 
@@ -259,20 +276,33 @@ def initialize_package_list(app):
             app.verbose('[javalink] %s', traceback.format_exc())
 
 
-def parse_docroot(srcdir, root):
+def normalize_docroot(app, root):
     """Creates a package-list URL and a link base from a docroot element.
 
     Args:
-        srcdir: the Sphinx source directory
-        root: the docroot element [string or tuple]
+        app: the global app object
+        root: the docroot element [string or dictionary]
     """
 
+    srcdir = app.env.srcdir
+    default_version = app.config.javalink_default_version
+
     if isinstance(root, basestring):
-        return _parse_docroot_str(srcdir, root)
+        (url, base) = _parse_docroot_str(srcdir, root)
+
+        return {'root':url, 'base':base, 'version':default_version}
     else:
-        url = _parse_docroot_str(srcdir, root[0])[0]
-        base = _parse_docroot_str(srcdir, root[1])[1]
-        return (url, base)
+        if 'base' in root:
+            root['base'] = _parse_docroot_str(srcdir, root['base'])[1]
+        else:
+            root['base'] = _parse_docroot_str(srcdir, root['root'])[1]
+
+        root['root'] = _parse_docroot_str(srcdir, root['root'])[0]
+
+        if 'version' not in root:
+            root['version'] = default_version
+
+        return root
 
 
 def _parse_docroot_str(srcdir, root):
