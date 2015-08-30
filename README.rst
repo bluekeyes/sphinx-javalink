@@ -113,23 +113,31 @@ directory as an argument.
 
 *Default:* ``[]``
 
-A list of paths or URLs referencing existing Javadoc documentation that can be
-the target of links. A valid |package-list|_ file must exist in the directory
-specified by the path or URL.
+A list of Javadocs that can be the target of links. A valid |package-list|_
+file must exist in the directory specified by the root path or URL.
 
-List elements can take two forms:
+List elements may be either:
 
-1. A string: ``root``
-2. A dictionary with the following format: ``{'root' : 'http://docs.org/java/api/', 'base': '../api/', 'version': 8}``
+1. A string
+2. A dictionary with the following keys:
 
-The ``base`` and ``version`` keys are optional, in which case the dictionary is
-equivalent to providing a string. The default base is the same as ``root`` and
-the default version is specified by ``javalink_default_version``.
-When ``base`` is defined, ``root`` is used to find the ``package-list`` file
-and ``base`` is used as the base for generated links.
-This is useful when the ``package-list`` is available at a local path that is not
-available from the built and published documentation. This also allows offline
-builds, by downloading all remote ``package-list`` files ahead of time.
+   - ``root`` (string, required)
+   - ``base`` (string, optional)
+   - ``version`` (integer, optional)
+
+Providing a string is equivalent to providing a dictionary with only the
+``root`` key.
+
+``root`` is a path or URL used to fine the ``package-list`` file. ``base`` is
+the base component of generated links; if it is not specified, the value of
+``root`` is used. ``version`` is the version of the ``javadoc`` tool used to
+generate the documentation; if it is not specified, the value of
+``javalink_default_version`` is used.
+
+Specifying a ``base`` that differs from ``root`` is useful when the
+``package-list`` is available at a local path that is not available from the
+built and published documentation. This also allows offline builds, by
+downloading all remote ``package-list`` files ahead of time.
 
 .. |package-list| replace:: ``package-list``
 .. _package-list: http://docs.oracle.com/javase/7/docs/technotes/tools/windows/javadoc.html#linkpackagelist
@@ -139,8 +147,9 @@ builds, by downloading all remote ``package-list`` files ahead of time.
 
 *Default:* ``7``
 
-An integer that defines the default formatting of the anchors of the Javadoc.
-You can override this default for each docroot.
+The version of the ``javadoc`` tool assumed if a version is not provided for a
+docroot. The version determines the format of generated links, which was
+changed in Java 8.
 
 ``javalink_add_method_parameters``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
