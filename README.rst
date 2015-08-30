@@ -6,6 +6,11 @@ A Sphinx_ extension for linking to ``javadoc``-generated API documentation.
 
 .. _Sphinx: http://sphinx-doc.org/
 
+.. contents::
+   :local:
+   :depth: 1
+   :backlinks: none
+
 Installation
 ============
 
@@ -66,8 +71,19 @@ directives; the imports are cumulative.
 
 .. _syntax: http://docs.oracle.com/javase/7/docs/technotes/tools/windows/javadoc.html#see
 
+Examples
+========
+
+A simple example_ ``conf.py`` is included in the repository. For real-world
+examples, see these projects:
+
+- Giraffe_
+
+.. _example: examples/conf.py
+.. _Giraffe: https://github.com/palantir/giraffe
+
 Configuration
--------------
+=============
 
 ``javalink_classpath``
 ^^^^^^^^^^^^^^^^^^^^^^
