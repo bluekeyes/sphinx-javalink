@@ -201,3 +201,25 @@ License
 =======
 
 `MIT <http://opensource.org/licenses/MIT>`_, see the ``LICENSE`` file.
+
+Changelog
+=========
+
+**0.10.0** (2015-08-30)
+
+- Support the ``env-merge-info`` hook
+- Fix #5 - support Java 8 link formats; required a breaking change to the
+  ``javalink_docroots`` syntax (thanks to @dadouf)
+
+**0.9.2** (2015-03-08)
+
+- Fix #3 - resolve paths relative to the source directory
+
+**0.9.1** (2015-03-03)
+
+- Fix #2 - correctly generate links to varargs methods
+- Fix #1 - ``find_rt_jar()`` now works correctly on OS X
+
+**0.9.0** (2015-01-25)
+
+- Initial release
