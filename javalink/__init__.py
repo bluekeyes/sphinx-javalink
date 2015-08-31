@@ -24,6 +24,7 @@ def setup(app):
     app.connect('builder-inited', ref.initialize_package_list)
 
     app.connect('env-purge-doc', ref.purge_imports)
+    app.connect('env-merge-info', ref.merge_imports)
 
 
 def validate_env(app):

@@ -87,7 +87,22 @@ class JavarefImportDirective(rst.Directive, EnvAccessor):
 
 def purge_imports(app, env, docname):
     if hasattr(env, 'javalink_imports'):
-        env.javalink_imports.pop(docname, None)
+        try:
+            del env.javalink_imports[docname]
+        except KeyError:
+            pass
+
+
+def merge_imports(env, docnames, other):
+    if not hasattr(other, 'javalink_imports'):
+        return
+    if not hasattr(env, 'javalink_imports')
+        env.javalink_imports = {}
+
+    docs_with_imports = (d for d in docnames if d in other.javalink_imports)
+    for doc in docs_with_imports:
+        imports = other.javalink_imports.get(doc, [])
+        env.javalink_imports.setdefault(doc, []).extend(imports)
 
 
 class JavarefRole(EnvAccessor):
@@ -133,17 +148,15 @@ class JavarefRole(EnvAccessor):
         
         if what:
             java_version = self._find_java_version(where)
-            
             path += self.to_anchor(java_version, what)
 
         return urljoin(root, path)
 
     def to_anchor(self, java_version, what):
         if java_version > 7:
-            # Javadoc from version 8 uses dashes https://youtrack.jetbrains.com/issue/IDEA-118970
+            # javadoc in 8+ uses '-' as separator
             what = what.replace('(','-').replace(')','-').replace(', ','-')
-        
-        # TODO is this the correct way to escape the URL?
+
         return '#{}'.format(urlquote(what, ';/?:@&=+$,()-'))
     
     def to_title(self, where, what):
