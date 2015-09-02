@@ -96,7 +96,7 @@ def purge_imports(app, env, docname):
 def merge_imports(env, docnames, other):
     if not hasattr(other, 'javalink_imports'):
         return
-    if not hasattr(env, 'javalink_imports')
+    if not hasattr(env, 'javalink_imports'):
         env.javalink_imports = {}
 
     docs_with_imports = (d for d in docnames if d in other.javalink_imports)
