@@ -205,6 +205,10 @@ License
 Changelog
 =========
 
+**0.10.1** (2015-09-01)
+
+- Fix syntax error in ``env-merge-info`` hook (thanks to @dadouf)
+
 **0.10.0** (2015-08-30)
 
 - Support the ``env-merge-info`` hook
