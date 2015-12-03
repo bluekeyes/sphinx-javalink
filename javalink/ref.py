@@ -122,7 +122,6 @@ class JavarefRole(EnvAccessor):
         if clazz:
             where = clazz.full_name
             if what:
-                # TODO handle member ambiguity
                 member = clazz.get_member(what)
                 if not member:
                     raise JavarefError('unknown member: {}'.format(reftext))

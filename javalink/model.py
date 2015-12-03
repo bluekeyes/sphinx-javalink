@@ -59,8 +59,7 @@ class LinkableClass(object):
         match = re.match(r'^(.+?)(?:\((.*)\))?$', member)
         if match:
             name, args = match.group(1, 2)
-            method = next((m for m in self.methods if name == m.name), None)
-            if method:
+            for method in [m for m in self.methods if name == m.name]:
                 if args is None:
                     return method
 
