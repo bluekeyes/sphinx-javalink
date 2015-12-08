@@ -66,9 +66,8 @@ class ClassLoader(object):
                     msg = "Wanted class '{}', but '{}' was loaded"
                     raise ValueError(msg.format(name, clazz))
 
-                classes = self.packages.setdefault(package, {})
-                classes[class_name] = clazz
-
+            classes = self.packages.setdefault(package, {})
+            classes[class_name] = clazz
             return clazz
 
     def find(self, name):
