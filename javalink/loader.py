@@ -61,10 +61,9 @@ class ClassLoader(object):
             return self.packages[package][class_name]
         except KeyError:
             clazz = self.find(name)
-            if clazz:
-                if clazz.package != package or clazz.name != class_name:
-                    msg = "Wanted class '{}', but '{}' was loaded"
-                    raise ValueError(msg.format(name, clazz))
+            if clazz and (clazz.package != package or clazz.name != class_name):
+                msg = "Wanted class '{}', but '{}' was loaded"
+                raise ValueError(msg.format(name, clazz))
 
             classes = self.packages.setdefault(package, {})
             classes[class_name] = clazz
