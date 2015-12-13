@@ -134,9 +134,16 @@ class ExplodedZipFile(ziputils.ExplodedZipFile):
     """
 
     def open(self, name, mode='rb'):
-        if not os.path.isfile(os.path.join(self.fn, name)):
+        try:
+            return super(ExplodedZipFile, self).open(name, mode)
+        except IOError:
             raise KeyError("There is no item named '{}' in the archive".format(name))
-        return super(ExplodedZipFile, self).open(name, mode)
+
+    def getinfo(self, name):
+        info = super(ExplodedZipFile, self).getinfo(name)
+        if not info:
+            raise KeyError("There is no item named '{}' in the archive".format(name))
+        return info
 
     def __enter__(self):
         return self
