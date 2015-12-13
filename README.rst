@@ -203,6 +203,15 @@ License
 Changelog
 =========
 
+**0.11.0** (2015-12-13)
+
+- Significantly improve performance (10x speedup in testing)
+
+  - Cache missing classes (thanks to @rlepinski)
+  - Open all resources at startup instead of reopening for every class search
+
+- Fix reporting of invalid references for class paths with class files
+
 **0.10.2** (2015-12-02)
 
 - Support linking to overloaded methods (thanks to @thasso)
