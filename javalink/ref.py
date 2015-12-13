@@ -144,7 +144,7 @@ class JavarefRole(EnvAccessor):
 
         path = where.replace('.', '/').replace('$', '.')
         path += '.html'
-        
+
         if what:
             java_version = self._find_java_version(where)
             path += self.to_anchor(java_version, what)
@@ -154,10 +154,10 @@ class JavarefRole(EnvAccessor):
     def to_anchor(self, java_version, what):
         if java_version > 7:
             # javadoc in 8+ uses '-' as separator
-            what = what.replace('(','-').replace(')','-').replace(', ','-')
+            what = what.replace('(', '-').replace(')', '-').replace(', ', '-')
 
         return '#{}'.format(urlquote(what, ';/?:@&=+$,()-'))
-    
+
     def to_title(self, where, what):
         package, name = parse_name(where)
         if name == 'package-summary':
