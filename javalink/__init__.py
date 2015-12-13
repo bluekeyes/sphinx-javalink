@@ -26,6 +26,8 @@ def setup(app):
     app.connect('env-purge-doc', ref.purge_imports)
     app.connect('env-merge-info', ref.merge_imports)
 
+    app.connect('build-finished', ref.cleanup)
+
 
 def validate_env(app):
     """Purge expired values from the environment.

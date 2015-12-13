@@ -105,6 +105,11 @@ def merge_imports(env, docnames, other):
         env.javalink_imports.setdefault(doc, []).extend(imports)
 
 
+def cleanup(app, exception):
+    if hasattr(app.env, 'javalink_classloader'):
+        app.env.javalink_classloader.close()
+
+
 class JavarefRole(EnvAccessor):
     def __init__(self, app):
         self.app = app

@@ -182,8 +182,6 @@ Limitations and Known Issues
 - When linking to methods, only the types of arguments may be specified.
   Specifying argument names will produce incorrect results.
 - All references are created as ``literal`` nodes.
-- Finding references in large jars and in class paths with many entries is
-  slow.
 
 Requirements
 ============
