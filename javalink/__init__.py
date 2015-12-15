@@ -19,16 +19,13 @@ def setup(app):
     app.add_directive('javaimport', ref.JavarefImportDirective)
     app.add_role('javaref', ref.JavarefRole(app))
 
-    app.connect('builder-inited', initialize_package_list)
-
+    app.connect('builder-inited', initialize_env)
     app.connect('env-purge-doc', ref.purge_imports)
     app.connect('env-merge-info', ref.merge_imports)
-
     app.connect('build-finished', ref.cleanup)
 
 
-def initialize_package_list(app):
-    # initialize_package_list must happen after validate_env
+def initialize_env(app):
     validate_env(app)
     ref.initialize_package_list(app)
 
