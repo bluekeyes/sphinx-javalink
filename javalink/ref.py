@@ -306,20 +306,22 @@ def normalize_docroot(app, root):
 
     if isinstance(root, basestring):
         (url, base) = _parse_docroot_str(srcdir, root)
-
-        return {'root':url, 'base':base, 'version':default_version}
+        return {'root': url, 'base': base, 'version': default_version}
     else:
+        normalized = {}
+        normalized['root'] = _parse_docroot_str(srcdir, root['root'])[0]
+
         if 'base' in root:
-            root['base'] = _parse_docroot_str(srcdir, root['base'])[1]
+            normalized['base'] = _parse_docroot_str(srcdir, root['base'])[1]
         else:
-            root['base'] = _parse_docroot_str(srcdir, root['root'])[1]
+            normalized['base'] = _parse_docroot_str(srcdir, root['root'])[1]
 
-        root['root'] = _parse_docroot_str(srcdir, root['root'])[0]
+        if 'version' in root:
+            normalized['version'] = root['version']
+        else:
+            normalized['version'] = default_version
 
-        if 'version' not in root:
-            root['version'] = default_version
-
-        return root
+        return normalized
 
 
 def _parse_docroot_str(srcdir, root):
