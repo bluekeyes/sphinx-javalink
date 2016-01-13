@@ -50,8 +50,7 @@ class ClassLoader(object):
     def __init__(self, paths):
         expanded_paths = [expand_path(p) for p in paths]
         self.paths = list(flatten.from_iterable(expanded_paths))
-
-        self.resources = [open_resource(p) for p in self.paths]
+        self.resources = ResourceLoader(self.paths)
 
         # {Package : {class name : LinkableClass}}
         self.packages = {}
@@ -119,9 +118,23 @@ class ClassLoader(object):
         return obj
 
     def __setstate__(self, obj):
-        resources = [open_resource(p) for p in obj['paths']]
         self.__dict__.update(obj)
-        self.resources = resources
+        self.resources = ResourceLoader(self.paths)
+
+
+class ResourceLoader(object):
+    def __init__(self, paths):
+        self.paths = list(paths)
+        self.resources = []
+
+    def __iter__(self):
+        for resource in self.resources:
+            yield resource
+
+        while len(self.paths) > 0:
+            resource = open_resource(self.paths.pop(0))
+            self.resources.append(resource)
+            yield resource
 
 
 class ExplodedZipFile(ziputils.ExplodedZipFile):
