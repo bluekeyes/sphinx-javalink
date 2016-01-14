@@ -203,6 +203,12 @@ License
 Changelog
 =========
 
+**0.11.1** (2016-01-13)
+
+- Open resources lazily
+- Fix incorrect environment cache invalidation
+- Fix potential ordering issues with Sphinx events (thanks to @rlepinski)
+
 **0.11.0** (2015-12-13)
 
 - Significantly improve performance (10x speedup in testing)
